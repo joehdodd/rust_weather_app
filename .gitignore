@@ -1,2 +1,5 @@
 /target
-./index.css
+/dist
+index.css
+.env
+.cargo
