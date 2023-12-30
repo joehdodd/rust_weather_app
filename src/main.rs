@@ -1,5 +1,6 @@
 use serde;
-use std::env;
+use wasm_bindgen::JsCast;
+use web_sys::{EventTarget, HtmlInputElement};
 use yew::prelude::*;
 
 #[derive(Clone, PartialEq, serde::Deserialize, Debug)]
@@ -45,14 +46,10 @@ struct Weather {
     location: WeatherLocation,
     data: WeatherData,
 }
-#[derive(Properties, PartialEq, Debug)]
-pub struct CurrentWeatherProps {
-    weather: Weather,
-}
 
 #[function_component]
 fn App() -> Html {
-    let api_key = env!("WEATHER_API_KEY");
+
     let weather = use_state(|| Weather {
         location: WeatherLocation {
             name: "".to_string(),
@@ -85,34 +82,95 @@ fn App() -> Html {
             },
         },
     });
+
+    let input_value = use_state(|| "".to_string());
+    let input_value_to_query = input_value.clone();
+    let input_value_to_string = input_value.clone();
+    let input_value_string = (*input_value_to_string).clone();
+    let on_cautious_change = Callback::from(move |e: Event| {
+        let input_value = input_value.clone();
+        let target: Option<EventTarget> = e.target();
+        let input = target.and_then(|t| t.dyn_into::<HtmlInputElement>().ok());
+
+        if let Some(input) = input {
+            input_value.set(input.value());
+        }
+    });
+
+    let is_submit = use_state(|| false);
+    let weather = weather.clone();
+    let weather_prop = (*weather).clone();
+
     {
-        let weather = weather.clone();
-        use_effect_with((), move |_| {
-            // let weather = weather.clone();
-            // let request_url = format!(
-            //     "https://api.tomorrow.io/v4/weather/realtime?location={}&apikey={}",
-            //     "Portland", api_key
-            // );
-            // wasm_bindgen_futures::spawn_local(async move {
-            //     let fetched_weather: Weather = gloo_net::http::Request::get(&request_url)
-            //         .send()
-            //         .await
-            //         .unwrap()
-            //         .json()
-            //         .await
-            //         .unwrap();
-            //     weather.set(fetched_weather);
-            // });
-            // || ()
+        let is_submit = is_submit.clone();
+        let is_submit_value = (*is_submit).clone();
+        let input_value_string = input_value_to_query.clone();
+        use_effect_with(is_submit_value, move |_| {
+            let is_submit = is_submit.clone();
+            let is_submit_value = (*is_submit).clone();
+            if is_submit_value {
+                wasm_bindgen_futures::spawn_local(async move {
+                    let api_key = env!("WEATHER_API_KEY");
+                    let query = (*input_value_string).clone();
+                    let request_url = format!(
+                        "https://api.openweathermap.org/data/2.5/weather?q={}&appid={}&units=imperial",
+                        query, api_key
+                    );
+
+                    let fetched_weather: Weather = gloo_net::http::Request::get(&request_url)
+                        .send()
+                        .await
+                        .unwrap()
+                        .json()
+                        .await
+                        .unwrap();
+                    weather.set(fetched_weather);
+                });
+                is_submit.set(false);
+            }
+            || ()
         });
     }
+
+    let on_submit = Callback::from(move |_e: MouseEvent| {
+        let is_submit = is_submit.clone();
+        is_submit.set(true);
+    });
+
     html! {
         <div class="p-2">
-            <h1 class="text-8xl text-slate-100"><span class="text-amber-600">{"Rust_"}</span>{"Weather"}</h1>
-            <h1 class="text-4xl text-slate-100">{weather.location.name.clone()}</h1>
-            <CurrentWeather weather={(*weather).clone()}/>
+            <div class="mb-2">
+                <h1 class="text-8xl text-slate-100"><span class="text-amber-600">{"Rust_"}</span>{"Weather"}</h1>
+                <h1 class="text-4xl text-slate-100">{&weather_prop.location.name}</h1>
+            </div>
+            <SearchWeather {on_cautious_change} input_value={input_value_string} submit_weather_query={on_submit.clone()}/>
+            <CurrentWeather weather={weather_prop}/>
         </div>
     }
+}
+
+#[derive(Properties, PartialEq)]
+pub struct SearchWeatherProps {
+    pub on_cautious_change: Callback<Event>,
+    pub input_value: String,
+    pub submit_weather_query: Callback<MouseEvent>,
+}
+
+#[function_component]
+fn SearchWeather(props: &SearchWeatherProps) -> Html {
+    html! {
+        <div>
+            <div class="flex flex-row gap-2 justify-start content-center items-center">
+                <input required={true} class="text-slate-900 font-bold p-2 rounded" type="text" name="weather_query" value={props.input_value.clone()} onchange={props.on_cautious_change.clone()}/>
+                <button class="bg-amber-600 hover:bg-amber-700 text-slate-100 font-bold py-2 px-4 rounded" onclick={props.submit_weather_query.clone()}>{"Submit"}</button>
+            </div>
+        </div>
+    }
+}
+
+#[derive(Properties, PartialEq, Debug)]
+pub struct CurrentWeatherProps {
+    weather: Weather,
 }
 
 #[function_component]
