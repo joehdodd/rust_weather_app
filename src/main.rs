@@ -4,83 +4,100 @@ use web_sys::{EventTarget, HtmlInputElement};
 use yew::prelude::*;
 
 #[derive(Clone, PartialEq, serde::Deserialize, Debug)]
-#[allow(non_snake_case)]
-struct WeatherValues {
-    cloudBase: f32,
-    cloudCeiling: f32,
-    dewPoint: f32,
-    freezingRainIntensity: i32,
-    humidity: i32,
-    precipitationProbability: i32,
-    pressureSurfaceLevel: f32,
-    rainIntensity: i32,
-    sleetIntensity: i32,
-    snowIntensity: i32,
-    temperature: f32,
-    temperatureApparent: f32,
-    uvHealthConcern: i32,
-    uvIndex: i32,
-    visibility: i32,
-    weatherCode: i32,
-    windDirection: f32,
-    windGust: f32,
-    windSpeed: f32,
-}
-#[derive(Clone, PartialEq, serde::Deserialize, Debug)]
-struct WeatherData {
-    time: String,
-    values: WeatherValues,
-}
-
-#[derive(Clone, PartialEq, serde::Deserialize, Debug)]
-struct WeatherLocation {
-    name: String,
-    lat: f64,
-    lon: f64,
-    #[serde(rename = "type")]
-    location_type: String,
-}
-
-#[derive(Clone, PartialEq, serde::Deserialize, Debug)]
 struct Weather {
-    location: WeatherLocation,
-    data: WeatherData,
+    coord: Coord,
+    weather: Vec<WeatherInfo>,
+    base: String,
+    main: Main,
+    visibility: i32,
+    wind: Wind,
+    clouds: Clouds,
+    dt: i32,
+    sys: Sys,
+    timezone: i32,
+    id: i32,
+    name: String,
+    cod: i32,
+}
+
+#[derive(Clone, PartialEq, serde::Deserialize, Debug)]
+struct Coord {
+    lon: f64,
+    lat: f64,
+}
+
+#[derive(Clone, PartialEq, serde::Deserialize, Debug)]
+struct WeatherInfo {
+    id: u32,
+    main: String,
+    description: String,
+    icon: String,
+}
+
+#[derive(Clone, PartialEq, serde::Deserialize, Debug)]
+struct Main {
+    temp: f64,
+    feels_like: f64,
+    temp_min: f64,
+    temp_max: f64,
+    pressure: u32,
+    humidity: u32,
+}
+
+#[derive(Clone, PartialEq, serde::Deserialize, Debug)]
+struct Wind {
+    speed: f64,
+    deg: u32,
+}
+
+#[derive(Clone, PartialEq, serde::Deserialize, Debug)]
+struct Clouds {
+    all: u32,
+}
+
+#[derive(Clone, PartialEq, serde::Deserialize, Debug)]
+struct Sys {
+    r#type: u32,
+    id: u32,
+    country: String,
+    sunrise: u32,
+    sunset: u32,
 }
 
 #[function_component]
 fn App() -> Html {
-
     let weather = use_state(|| Weather {
-        location: WeatherLocation {
-            name: "".to_string(),
-            lat: 0.0,
-            lon: 0.0,
-            location_type: "".to_string(),
+        coord: Coord { lon: 0.0, lat: 0.0 },
+        weather: vec![WeatherInfo {
+            id: 0,
+            main: "".to_string(),
+            description: "".to_string(),
+            icon: "".to_string(),
+        }],
+        base: "".to_string(),
+        main: Main {
+            temp: 0.0,
+            feels_like: 0.0,
+            temp_min: 0.0,
+            temp_max: 0.0,
+            pressure: 0,
+            humidity: 0,
         },
-        data: WeatherData {
-            time: "".to_string(),
-            values: WeatherValues {
-                cloudBase: 0.0,
-                cloudCeiling: 0.0,
-                dewPoint: 0.0,
-                freezingRainIntensity: 0,
-                humidity: 0,
-                precipitationProbability: 0,
-                pressureSurfaceLevel: 0.0,
-                rainIntensity: 0,
-                sleetIntensity: 0,
-                snowIntensity: 0,
-                temperature: 0.0,
-                temperatureApparent: 0.0,
-                uvHealthConcern: 0,
-                uvIndex: 0,
-                visibility: 0,
-                weatherCode: 0,
-                windDirection: 0.0,
-                windGust: 0.0,
-                windSpeed: 0.0,
-            },
+        visibility: 0,
+        wind: Wind { speed: 0.0, deg: 0 },
+        clouds: Clouds { all: 0 },
+        dt: 0,
+        sys: Sys {
+            r#type: 0,
+            id: 0,
+            country: "".to_string(),
+            sunrise: 0,
+            sunset: 0,
         },
+        timezone: 0,
+        id: 0,
+        name: "".to_string(),
+        cod: 0,
     });
 
     let input_value = use_state(|| "".to_string());
@@ -100,9 +117,10 @@ fn App() -> Html {
     let is_submit = use_state(|| false);
     let weather = weather.clone();
     let weather_prop = (*weather).clone();
-
+    let has_data = use_state(|| false);
     {
         let is_submit = is_submit.clone();
+        let has_data = has_data.clone();
         let is_submit_value = (*is_submit).clone();
         let input_value_string = input_value_to_query.clone();
         use_effect_with(is_submit_value, move |_| {
@@ -125,6 +143,7 @@ fn App() -> Html {
                         .await
                         .unwrap();
                     weather.set(fetched_weather);
+                    has_data.set(true);
                 });
                 is_submit.set(false);
             }
@@ -137,14 +156,14 @@ fn App() -> Html {
         is_submit.set(true);
     });
 
+    let has_data_value = (*has_data).clone();
     html! {
-        <div class="p-2">
+        <div class="flex flex-col gap-12 p-2">
             <div class="mb-2">
-                <h1 class="text-8xl text-slate-100"><span class="text-amber-600">{"Rust_"}</span>{"Weather"}</h1>
-                <h1 class="text-4xl text-slate-100">{&weather_prop.location.name}</h1>
+                <h1 class="text-8xl text-slate-300"><span class="text-amber-600">{"Rust"}</span>{"_Weather"}</h1>
             </div>
             <SearchWeather {on_cautious_change} input_value={input_value_string} submit_weather_query={on_submit.clone()}/>
-            <CurrentWeather weather={weather_prop}/>
+            if has_data_value {<CurrentWeather weather={weather_prop.clone()}/>}
         </div>
     }
 }
@@ -161,7 +180,7 @@ fn SearchWeather(props: &SearchWeatherProps) -> Html {
     html! {
         <div>
             <div class="flex flex-row gap-2 justify-start content-center items-center">
-                <input required={true} class="text-slate-900 font-bold p-2 rounded" type="text" name="weather_query" value={props.input_value.clone()} onchange={props.on_cautious_change.clone()}/>
+                <input required={true} class="text-slate-900 bg-slate-300 font-bold p-2 rounded" type="text" name="weather_query" value={props.input_value.clone()} onchange={props.on_cautious_change.clone()}/>
                 <button class="bg-amber-600 hover:bg-amber-700 text-slate-100 font-bold py-2 px-4 rounded" onclick={props.submit_weather_query.clone()}>{"Submit"}</button>
             </div>
         </div>
@@ -176,8 +195,15 @@ pub struct CurrentWeatherProps {
 #[function_component]
 fn CurrentWeather(props: &CurrentWeatherProps) -> Html {
     html! {
-        <div class="p-2 my-2 rounded-lg shadow-lg bg-slate-100">
-            <h1 class="text-slate-600 text-3xl">{props.weather.data.values.temperature * 9.0 / 5.0 + 32.0}{"\u{00b0}"}</h1>
+        <div class="flex flex-row gap-12 justify-between">
+            <div class="w-full p-2 rounded-lg shadow-2xl bg-slate-300">
+                <h1 class="text-slate-600 text-3xl">{props.weather.name.clone()}{","}{props.weather.sys.country.clone()}</h1>
+            </div>
+            <div class="w-full p-2 rounded-lg shadow-2xl bg-slate-300">
+                <h1 class="text-slate-600 text-3xl">{props.weather.main.temp}{"\u{00b0}"}</h1>
+                <h4 class="text-slate-600 text-3xl">{"H:"}{props.weather.main.temp_max}{"\u{00b0}"}</h4>
+                <h4 class="text-slate-600 text-3xl">{"L:"}{props.weather.main.temp_min}{"\u{00b0}"}</h4>
+            </div>
         </div>
     }
 }
